@@ -1,7 +1,7 @@
 import random
 
 class ModelBasedReflexVacuum:
-  def __init__(self, width, height):
+  def __init__(self, width, height, battery):
     # initializes the width and height of world
     self.width = width
     self.height = height
@@ -18,6 +18,10 @@ class ModelBasedReflexVacuum:
     self.x = random.randint(0, width - 1)
     self.y = random.randint(0, height - 1)
 
+    # battery life of vacuum is originally full 
+    self.battery = battery
+    self.max_battery = battery
+
   def sense(self):
     """Sense if the current square is dirty."""
     return self.world[self.y][self.x]
@@ -28,11 +32,35 @@ class ModelBasedReflexVacuum:
 
   def clean(self):
     """Clean current square."""
-    self.world[self.y][self.x] = False
-    self.state[self.y][self.x] = False
-    print(f"Cleaned square ({self.x}, {self.y})")
+    if self.battery > 0 and self.world[self.y][self.x]:
+    # if there is some charge and if the square is dirty
+      self.world[self.y][self.x] = False
+      self.state[self.y][self.x] = False
+      self.battery -= 1
+      print(f"Cleaned square ({self.x}, {self.y}). \nBattery left: {self.battery}")
+    elif self.battery == 0:
+      print(f"Cannot clean ({self.x}, {self.y}). Battery dead.")
 
-  def move(self):
+  def recharge(self):
+    """Recharge battery to full."""
+    if self.x == 0 and self.y == 0 and self.battery < self.max_battery:
+      print(f"Recharging at home.")
+      self.battery = self.max_battery
+
+  def move_toward(self, target_x, target_y):
+    """Move toward a specific square on grid."""
+    if self.x < target_x:
+      self.x += 1
+    elif self.x > target_x:
+      self.x -= 1
+    elif self.y < target_y:
+      self.y += 1
+    elif self.y > target_y:
+      self.y -= 1
+    
+    print(f"Move towards ({target_x}, {target_y})")
+
+  def move_randomly(self):
     """Move to random square within grid bounds."""
     directions = []
     if self.x < self.width - 1:
@@ -52,42 +80,33 @@ class ModelBasedReflexVacuum:
 
   def choose_action(self):
     """Decide what to do. Clean if square is dirty or move to a new square if square is clean."""
-    if self.sense() is True:
-      return "CLEAN"
-    elif self.sense() is False:
-      for row in range(self.height):
-        for col in range(self.width):
-          if self.state[row][col] is True:
-            if self.x < col:
-              self.x += 1
-            elif self.x > col:
-              self.x -= 1
-            elif self.y < row:
-              self.y += 1
-            elif self.y > row:
-              self.y -= 1
-            
-            print(f"Moving to dirty square: ({row}, {col})")
-            return "MOVE"
+    if self.battery <= 0:
+      print(f"Battery empty. Heading home to recharge.")
+      self.move_toward(0, 0)
 
-      self.move()
-      return "MOVE"
+    if self.sense():
+      self.clean()
+      return
     
-  
+    for row in range(self.height):
+      for col in range(self.width):
+        if self.state[row][col] is True:
+          print(f"Moving to dirty square from memory: ({row}, {col})")
+          self.move_toward(col, row)
+          return
+
+    self.move_randomly()
+    
   def run(self, steps=20):
     for step in range(steps):
-      print(f"\nStep {step + 1}: Position: {self.x, self.y}")
+      print(f"\nStep {step + 1}: Position: {self.x, self.y} Battery: {self.battery}")
+      self.recharge()
       precept = self.sense()
       self.update_state(precept)
+      self.choose_action()
 
-      action = self.choose_action()
-
-      if action == "CLEAN":
-        self.clean()
-
-
-vacuum = ModelBasedReflexVacuum(width=4, height=4)
-vacuum.run()
+vacuum = ModelBasedReflexVacuum(width=5, height=5, battery=3)
+vacuum.run(steps=40)
 
 
 
